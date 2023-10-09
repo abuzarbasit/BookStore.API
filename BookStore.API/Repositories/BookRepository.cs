@@ -1,4 +1,5 @@
-﻿using BookStore.API.Data;
+﻿using AutoMapper;
+using BookStore.API.Data;
 using BookStore.API.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,50 +10,33 @@ namespace BookStore.API.Repositories
         Task<BookModel> GetBookAsync(int bookID);
         Task<int> AddBookAsync(BookModel model);
         Task<int> UpdateBook(BookModel model);
+        Task DeleteBook(int bookID);
     }
     public class BookRepository : IBookRepository
     {
         private readonly BookStoreContext context;
-       public BookRepository(BookStoreContext dbContext)
+        private readonly IMapper _mapper;
+       public BookRepository(BookStoreContext dbContext,IMapper mapper)
+
         { 
             context = dbContext;
+            _mapper = mapper;
         }
         public async Task<List<BookModel>> GetAllBooksAsync()
         {
-            List<BookModel> books = new();
-           var records=await context.Books.Select(i=>new BookModel() { 
-           Id=i.Id,
-           Author=i.Author,
-           Description=i.Description,
-           Name=i.Name,
-           Title=i.Title
-           }).ToListAsync();
-            books.AddRange(records);
-            
-            
-
-
-
-            return books;
+           
+           var records=await context.Books.ToListAsync();
+            return _mapper.Map<List<BookModel>>(records);
         }
         public async Task<BookModel> GetBookAsync(int bookID)
         {
             List<BookModel> books = new();
-            var records = await context.Books.Where(i=>i.Id==bookID).Select(i => new BookModel()
-            {
-                Id = i.Id,
-                Author = i.Author,
-                Description = i.Description,
-                Name = i.Name,
-                Title = i.Title
-            }).FirstOrDefaultAsync();
-            
+           
+
+            var book = await context.Books.FindAsync(bookID);
 
 
-
-
-
-            return records;
+            return _mapper.Map<BookModel>(book);
         }
 
         public async Task<int> AddBookAsync(BookModel model)
@@ -68,15 +52,31 @@ namespace BookStore.API.Repositories
         }
         public async Task<int> UpdateBook(BookModel model)
         {
-            var book = await context.Books.FindAsync(model.Id);
-            if (book != null) { 
-                book.Author = model.Author;
-                book.Description = model.Description;
-                book.Name = model.Name; 
-                    book.Title = model.Title;
-              await      context.SaveChangesAsync();
-            }
+            var book = new Books()
+            {
+                Id=model.Id,
+                Author = model.Author,
+                Description = model.Description,
+                Name = model.Name,
+                Title = model.Title
+                
+            };
+            context.Books.Update(book);
+            await context.SaveChangesAsync();
             return book.Id;
         }
+
+        public async Task DeleteBook(int bookID)
+        {
+            var book = context.Books.Where(i=>i.Id == bookID).FirstOrDefault();
+            if (book != null) {
+                context.Books.Remove(book);
+                await context.SaveChangesAsync();
+            }
+           
+            await context.SaveChangesAsync();
+           
+        }
+
     }
 }
